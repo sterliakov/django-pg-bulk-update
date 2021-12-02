@@ -15,10 +15,13 @@ from django.db.models.expressions import BaseExpression
 from django.db.models.sql import UpdateQuery
 from django.db.models.sql.where import WhereNode
 
-from .compatibility import get_postgres_version, get_model_fields, returning_available, string_types, Iterable
+from .compatibility import (get_postgres_version, get_model_fields,
+                            returning_available, string_types, Iterable)
 from .set_functions import AbstractSetFunction, NowSetFunction
-from .types import TOperators, TFieldNames, TUpdateValues, TSetFunctions, TOperatorsValid, TUpdateValuesValid, \
-    TSetFunctionsValid, TDatabase, FieldDescriptor, AbstractFieldFormatter
+from .types import (TOperators, TFieldNames, TUpdateValues, TSetFunctions,
+                    TOperatorsValid, TUpdateValuesValid,
+                    TSetFunctionsValid, TDatabase, FieldDescriptor,
+                    AbstractFieldFormatter)
 from .utils import batched_operation, is_auto_set_field
 
 __all__ = ['pdnf_clause', 'bulk_update', 'bulk_update_or_create', 'bulk_create']
@@ -29,7 +32,8 @@ def _validate_field_names(field_names, param_name='key_fields'):
     # type: (TFieldNames, str) -> Tuple[FieldDescriptor]
     """
     Validates field_names.
-    It can be a string for single field or an iterable of strings for multiple fields.
+    It can be a string for single field or an iterable of strings
+    for multiple fields.
     :param field_names: Field names to validate
     :param param_name: A field name, which would be returned in exception.
     :return: A tuple of strings - formatted field types
@@ -38,7 +42,8 @@ def _validate_field_names(field_names, param_name='key_fields'):
     error_message = "'%s' parameter must be iterable of strings" % param_name
 
     if isinstance(field_names, string_types):
-        return FieldDescriptor(field_names),  # comma is not a bug, I need tuple returned
+        # comma is not a bug, I need tuple returned
+        return FieldDescriptor(field_names),
     elif isinstance(field_names, Iterable):
         field_names = list(field_names)
         for name in field_names:
@@ -60,7 +65,8 @@ def _validate_returning(model, returning):
     if returning is None:
         return None
     elif returning == '*':
-        ret_fds = tuple(FieldDescriptor(f.name) for f in get_model_fields(model, concrete=True))
+        ret_fds = tuple(FieldDescriptor(f.name)
+                        for f in get_model_fields(model, concrete=True))
     else:
         returning_available(raise_exception=True)
 
@@ -77,7 +83,8 @@ def _validate_operators(key_fds, operators):
     """
     Validates operators and gets a dict of database filters with field_name as key
     Order of dict is equal to field_names order
-    :param key_fds: A tuple of FieldDescriptor objects. These objects will be modified.
+    :param key_fds: A tuple of FieldDescriptor objects.
+                    These objects will be modified.
     :param operators: Operations, not validated.
     :return: A tuple of field descriptors with operators
     """
@@ -89,7 +96,9 @@ def _validate_operators(key_fds, operators):
             fd.key_operator = operators.get(fd.name)
     else:
         if not isinstance(operators, Iterable):
-            raise TypeError("'key_field_ops' parameter must be iterable of strings or AbstractClauseOperator instances")
+            raise TypeError(
+                "'key_field_ops' parameter must be iterable of strings "
+                "or AbstractClauseOperator instances")
         operators = tuple(operators)
         for i, fd in enumerate(key_fds):
             fd.key_operator = operators[i] if i < len(operators) else None
@@ -106,23 +115,28 @@ def _validate_update_values(model, key_fds, values):
     """
     Parses and validates input data for bulk_update and bulk_update_or_create.
     It can come in 2 forms:
-        + Iterable of dicts. Each dict is update or create data. Each dict must contain all key_fields as keys.
+        + Iterable of dicts. Each dict is update or create data.
+            Each dict must contain all key_fields as keys.
             You can't update key_fields with this format.
         + Dict of key_values: update_fields_dict
             - key_values can be iterable or single object.
             - If iterable, key_values length must be equal to key_fields length.
             - If single object, key_fields is expected to have 1 element
-    :param key_fds: A tuple of FieldDescriptor objects, by which data will be selected
+    :param key_fds: A tuple of FieldDescriptor objects, by which
+                    data will be selected
     :param values: Input data as given
     :return: Returns a tuple:
-        + A tuple with FieldDescriptor objects to update (which are not in key_field_descriptors)
-        + A dict, keys are tuples of key_fields values, and values are update_values
+        + A tuple with FieldDescriptor objects to update
+          (which are not in key_field_descriptors)
+        + A dict, keys are tuples of key_fields values, and
+          values are update_values
     """
     upd_keys_tuple = tuple()
     result = {}
     if isinstance(values, dict):
         if not key_fds:
-            raise TypeError("'values' parameter can not be dict for create only operation")
+            raise TypeError(
+                "'values' parameter can not be dict for create only operation")
 
         for keys, updates in values.items():
 
@@ -131,7 +145,8 @@ def _validate_update_values(model, key_fds, values):
                 keys = (keys,)
 
             if len(keys) != len(key_fds):
-                raise ValueError("Length of key tuple is not equal to key_fields length")
+                raise ValueError(
+                    "Length of key tuple is not equal to key_fields length")
 
             # First element. Let's think, that it's fields are updates
             if not upd_keys_tuple:
@@ -152,7 +167,8 @@ def _validate_update_values(model, key_fds, values):
             # First element. Let's think, that it's fields are updates
             key_field_names = {f.name for f in key_fds}
             if key_field_names - set(item.keys()):
-                raise ValueError("One of update items doesn't contain all key fields")
+                raise ValueError(
+                    "One of update items doesn't contain all key fields")
 
             if not upd_keys_tuple:
                 upd_keys_tuple = tuple(set(item.keys()) - key_field_names)
@@ -165,8 +181,10 @@ def _validate_update_values(model, key_fds, values):
             upd_key_values = []
             for fd in key_fds:
                 if isinstance(item[fd.name], dict):
-                    raise TypeError("Dict is currently not supported as key field")
-                elif isinstance(item[fd.name], Iterable) and not isinstance(item[fd.name], string_types):
+                    raise TypeError(
+                        "Dict is currently not supported as key field")
+                elif (isinstance(item[fd.name], Iterable)
+                        and not isinstance(item[fd.name], string_types)):
                     upd_key_values.append(tuple(item[fd.name]))
                 else:
                     upd_key_values.append(item[fd.name])
@@ -201,7 +219,8 @@ def _validate_set_functions(model, fds, functions):
     # type: (Type[Model], Tuple[FieldDescriptor], TSetFunctions) -> TSetFunctionsValid
     """
     Validates set functions.
-    It should be a dict with field name as key and function name or AbstractSetFunction instance as value
+    It should be a dict with field name as key and function name or
+    AbstractSetFunction instance as value
     Default set function is EqualSetFunction
     :param model: Model updated
     :param fds: A tuple of FieldDescriptors to update. It will be modified.
@@ -217,7 +236,8 @@ def _validate_set_functions(model, fds, functions):
             raise ValueError("'set_functions' keys must be strings")
 
         if not isinstance(v, (string_types, AbstractSetFunction, BaseExpression)):
-            raise ValueError("'set_functions' values must be string, AbstractSetFunction or BaseExpression instance")
+            raise ValueError(
+                "'set_functions' values must be string, AbstractSetFunction or BaseExpression instance")
 
     for f in fds:
         field = f.get_field(model)
@@ -233,7 +253,8 @@ def _validate_set_functions(model, fds, functions):
         f.set_function = set_func
 
         if not f.set_function.field_is_supported(field):
-            raise ValueError("'%s' doesn't support '%s' field" % (f.set_function.__class__.__name__, f.name))
+            raise ValueError("'%s' doesn't support '%s' field" %
+                             (f.set_function.__class__.__name__, f.name))
 
     # Add functions which doesn't require values
     fd_names = {fd.name for fd in fds}
@@ -286,11 +307,13 @@ def pdnf_clause(key_fields, field_values, key_fields_ops=()):
     WHERE (a = x AND b = y AND ...) OR (a = x1 AND b = y1  AND ...) OR ...
     If field_values are not given condition for empty result is returned.
     :param key_fields: Iterable of database field names ('a', 'b', ...)
-    :param field_values: Field values. A list of tuples ( (x, y), (x1, y1), ...) or dicts ({'a': x, 'b': y}, ...)
+    :param field_values: Field values. A list of tuples ( (x, y), (x1, y1), ...)
+                         or dicts ({'a': x, 'b': y}, ...)
     :param key_fields_ops: Field compare operators.
         It can be dict with field_name as key, operation name as value
         Or an iterable of operations in field_names order.
-        The default operator is eq (it will be used for all fields, not set directly).
+        The default operator is eq (it will be used for all fields,
+        not set directly).
         Operators: [in, gt, lt, eq, gte, lte, !in, !eq]
         Example: ('eq', 'in') or {'a': 'eq', 'b': 'in'}.
     :return: Django Q-object (it can be used as Model.objects.filter(Q(...))
@@ -313,7 +336,9 @@ def pdnf_clause(key_fields, field_values, key_fields_ops=()):
         if not isinstance(values_item, (dict, Iterable)):
             raise TypeError("Each field_values item must be dict or iterable")
         if len(values_item) != len(key_fds):
-            raise ValueError("All field_values must contain all fields from 'field_names' parameter")
+            raise ValueError(
+                "All field_values must contain all fields from "
+                "'field_names' parameter")
 
         and_cond = Q()
         for i, fd in enumerate(key_fds):
@@ -339,7 +364,8 @@ def pdnf_clause(key_fields, field_values, key_fields_ops=()):
 def _get_default_fds(model, existing_fds):
     # type: (Type[Model], Tuple[FieldDescriptor]) -> Tuple[FieldDescriptor]
     """
-    Finds model fields not absent in existing_fds and returns a Tuple of FieldDescriptors for them
+    Finds model fields not absent in existing_fds and returns a
+    Tuple of FieldDescriptors for them
     :param model: Model instance
     :param existing_fds: Already defined FileDescriptor objects
     :return: A tuple of FileDescriptor objects
@@ -381,20 +407,24 @@ def _with_values_query_part(model, values, conn, key_fds, upd_fds, default_fds=(
     tpl = "WITH vals(%s) AS (VALUES %s)%s"  # noqa
 
     # Form data for VALUES section
-    # It includes both keys and update data: keys will be used in WHERE section, while update data in SET section
+    # It includes both keys and update data: keys will be used in WHERE section,
+    # while update data in SET section
     values_items = []
     values_update_params = []
 
     if default_fds:
-        # Prepare default values to insert into database, if they are not provided in updates or keys
+        # Prepare default values to insert into database, if they are
+        # not provided in updates or keys
         # Dictionary keys list all db column names to be inserted.
-        defaults_sel_sql = ', '.join('"%s"' % fd.prefixed_name for fd in default_fds)
+        defaults_sel_sql = ', '.join(
+            '"%s"' % fd.prefixed_name for fd in default_fds)
         default_values = (fd.get_field(model).get_default() for fd in default_fds)
         defaults_fields = tuple(fd.get_field(model) for fd in default_fds)
         defaults_format_bases = tuple(fd.set_function for fd in default_fds)
-        defaults_sql_items, defaults_params = _generate_fds_sql(conn, defaults_fields, defaults_format_bases,
-                                                                default_values, True)
-        defaults_sql = ",\n default_vals(%s) AS (VALUES (%s))" % (defaults_sel_sql, ', '.join(defaults_sql_items))
+        defaults_sql_items, defaults_params = _generate_fds_sql(
+            conn, defaults_fields, defaults_format_bases, default_values, True)
+        defaults_sql = ",\n default_vals(%s) AS (VALUES (%s))" % (
+            defaults_sel_sql, ', '.join(defaults_sql_items))
     else:
         defaults_sql = ''
         defaults_params = []
@@ -406,14 +436,17 @@ def _with_values_query_part(model, values, conn, key_fds, upd_fds, default_fds=(
     # I remove file descriptors which don't require any value from updates
     #   as they should not be present in values SQL.
     #   See issue https://github.com/M1ha-Shvn/django-pg-bulk-update/issues/71
-    upd_fds_with_values = tuple(fd for fd in upd_fds if fd.set_function.needs_value)
+    upd_fds_with_values = tuple(
+        fd for fd in upd_fds if fd.set_function.needs_value)
     upd_fields = tuple(fd.get_field(model) for fd in upd_fds_with_values)
     upd_format_bases = tuple(fd.set_function for fd in upd_fds_with_values)
 
     for keys, updates in values.items():
         upd_values = [updates[fd.name] for fd in upd_fds_with_values]
-        upd_sql_items, upd_params = _generate_fds_sql(conn, upd_fields, upd_format_bases, upd_values, first)
-        key_sql_items, key_params = _generate_fds_sql(conn, key_fields, key_format_bases, keys, first)
+        upd_sql_items, upd_params = _generate_fds_sql(
+            conn, upd_fields, upd_format_bases, upd_values, first)
+        key_sql_items, key_params = _generate_fds_sql(
+            conn, key_fields, key_format_bases, keys, first)
 
         sql_items = key_sql_items + upd_sql_items
 
@@ -427,16 +460,19 @@ def _with_values_query_part(model, values, conn, key_fds, upd_fds, default_fds=(
     )
 
     sel_sql = ', '.join(
-        '"%s"' % fd.prefixed_name for fd in chain(key_fds, upd_fds) if fd.set_function.needs_value
+        '"%s"' % fd.prefixed_name
+        for fd in chain(key_fds, upd_fds) if fd.set_function.needs_value
     )
 
-    return tpl % (sel_sql, values_sql, defaults_sql), values_update_params + list(defaults_params)
+    return (tpl % (sel_sql, values_sql, defaults_sql),
+            values_update_params + list(defaults_params))
 
 
 def _bulk_update_query_part(model, conn, key_fds, upd_fds, where):
     # type: (Type[Model], TDatabase, Tuple[FieldDescriptor], Tuple[FieldDescriptor], Tuple[str, tuple]) -> Tuple[str, List[Any]]
     """
-    Forms bulk update query part without values, counting that all keys and values are already in "vals" table
+    Forms bulk update query part without values, counting that all keys
+    and values are already in "vals" table
     :param model: Model to update, a subclass of django.db.models.Model
     :param conn: Database connection used
     :param key_fds: Field names, by which items would be selected (tuple)
@@ -461,7 +497,8 @@ def _bulk_update_query_part(model, conn, key_fds, upd_fds, where):
     for fd in key_fds:
         table_field = '"t"."%s"' % fd.get_field(model).column
         prefixed_sel_field = '"vals"."%s"' % fd.prefixed_name
-        where_items.append(fd.key_operator.get_sql(table_field, prefixed_sel_field))
+        where_items.append(fd.key_operator.get_sql(
+            table_field, prefixed_sel_field))
     where_sql = ' AND '.join(where_items)
     where_params = []
 
@@ -472,8 +509,10 @@ def _bulk_update_query_part(model, conn, key_fds, upd_fds, where):
     # Form data for SET section
     set_items, set_params = [], []
     for fd in upd_fds:
-        func_sql, params = fd.set_function.get_sql(fd.get_field(model),
-                                                   '"vals"."%s"' % fd.prefixed_name, conn, val_as_param=False)
+        func_sql, params = fd.set_function.get_sql(
+            fd.get_field(model),
+            '"vals"."%s"' % fd.prefixed_name,
+            conn, val_as_param=False)
         set_items.append(func_sql)
         set_params.extend(params)
     set_sql = ', '.join(set_items)
@@ -496,7 +535,8 @@ def _returning_query_part(model, ret_fds):
     if ret_fds is None:
         return '', []
 
-    return "RETURNING %s" % ', '.join('"%s"' % fd.get_field(model).column for fd in ret_fds), []
+    fields = ', '.join('"%s"' % fd.get_field(model).column for fd in ret_fds)
+    return "RETURNING %s" % fields, []
 
 
 def _execute_update_query(model, conn, sql, params, ret_fds):
@@ -518,11 +558,14 @@ def _execute_update_query(model, conn, sql, params, ret_fds):
         return cursor.rowcount
     else:
         from django_pg_returning import ReturningQuerySet
-        return ReturningQuerySet(sql, model=model, params=params, using=conn.alias,
-                                 fields=[fd.get_field(model).attname for fd in ret_fds])
+        return ReturningQuerySet(sql, model=model, params=params,
+                                 using=conn.alias,
+                                 fields=[fd.get_field(model).attname
+                                         for fd in ret_fds])
 
 
-def _bulk_update_no_validation(model, values, conn, key_fds, upd_fds, ret_fds, where):
+def _bulk_update_no_validation(model, values, conn, key_fds,
+                               upd_fds, ret_fds, where):
     # type: (Type[Model], TUpdateValuesValid, TDatabase, Tuple[FieldDescriptor], Tuple[FieldDescriptor], Optional[Tuple[FieldDescriptor]], Tuple[str, tuple]) -> Union[int, 'ReturningQuerySet']    # noqa: F821
     """
     Does bulk update, skipping parameters validation.
@@ -542,8 +585,10 @@ def _bulk_update_no_validation(model, values, conn, key_fds, upd_fds, ret_fds, w
         from django_pg_returning import ReturningQuerySet
         return len(values) if ret_fds is None else ReturningQuerySet(None)
 
-    values_sql, values_params = _with_values_query_part(model, values, conn, key_fds, upd_fds)
-    upd_sql, upd_params = _bulk_update_query_part(model, conn, key_fds, upd_fds, where)
+    values_sql, values_params = _with_values_query_part(
+        model, values, conn, key_fds, upd_fds)
+    upd_sql, upd_params = _bulk_update_query_part(
+        model, conn, key_fds, upd_fds, where)
     ret_sql, ret_params = _returning_query_part(model, ret_fds)
 
     sql = "%s %s %s" % (values_sql, upd_sql, ret_sql)
@@ -558,7 +603,8 @@ def _concat_batched_result(batched_result, ret_fds):
     Gets results of batched execution and format it to appropriate request answer
     :param batched_result: Batched result
     :param ret_fds: Descriptors of fields to return.
-    :return: ReturningQuerySet if returning is not None or updated/inserted records count otherwise
+    :return: ReturningQuerySet if returning is not None
+             or updated/inserted records count otherwise
     """
     if ret_fds is None:
         return sum(batched_result)
@@ -566,13 +612,15 @@ def _concat_batched_result(batched_result, ret_fds):
         from django_pg_returning import ReturningQuerySet
         return ReturningQuerySet(None)
     else:
-        # I can't use chain here, as it iterates over QuerySets, and I have to return ReturningQuerySet
+        # I can't use chain here, as it iterates over QuerySets,
+        # and I have to return ReturningQuerySet
         from django_pg_returning import ReturningQuerySet
         return sum(batched_result[1:], batched_result[0])
 
 
-def bulk_update(model, values, key_fields='id', using=None, set_functions=None, key_fields_ops=(),
-                where=None, returning=None, batch_size=None, batch_delay=0):
+def bulk_update(model, values, key_fields='id', using=None, set_functions=None,
+                key_fields_ops=(), where=None, returning=None,
+                batch_size=None, batch_delay=0):
     # type: (Type[Model], TUpdateValues, TFieldNames, Optional[str], TSetFunctions, TOperators, Optional[WhereNode], Optional[TFieldNames], Optional[int], float) -> Union[int, 'ReturningQuerySet']    # noqa: F821
     """
     Updates multiple records of a given model, finding them by key_fields.
@@ -580,14 +628,16 @@ def bulk_update(model, values, key_fields='id', using=None, set_functions=None, 
     :param model: Model to update, a subclass of django.db.models.Model
     :param values: Data to update. All items must update same fields!!!
         It can come in 2 forms:
-        + Iterable of dicts. Each dict is update or create data. Each dict must contain all key_fields as keys.
+        + Iterable of dicts. Each dict is update or create data.
+            Each dict must contain all key_fields as keys.
             You can't update key_fields with this format.
         + Dict of key_values: update_fields_dict
             - key_values can be iterable or single object.
             - If iterable, key_values length must be equal to key_fields length.
             - If single object, key_fields is expected to have 1 element
     :param key_fields: Field names, by which items would be selected.
-        It can be a string, if there's only one key field or iterable of strings for multiple keys
+        It can be a string, if there's only one key field
+        or iterable of strings for multiple keys
     :param using: Database alias to make query to.
     :param set_functions: Functions to set values.
         Should be a dict of field name as key, function as value.
@@ -601,10 +651,12 @@ def bulk_update(model, values, key_fields='id', using=None, set_functions=None, 
         Operators: [in; !in; gt, >; lt, <; gte, >=; lte, <=; !eq, <>, !=; eq, =, ==]
         Example: ('eq', 'in') or {'a': 'eq', 'b': 'in'}.
     :param where: A WhereNode instance - filter condition for all query
-    :param returning: Optional. If given, returns updated values of fields, listed in parameter.
-    :param batch_size: Optional. If given, data is split it into batches of given size.
-        Each batch is queried independently.
-    :param batch_delay: Delay in seconds between batches execution, if batch_size is not None.
+    :param returning: Optional. If given, returns updated values of fields,
+                      listed in parameter.
+    :param batch_size: Optional. If given, data is split it into batches
+                       of given size. Each batch is queried independently.
+    :param batch_delay: Delay in seconds between batches execution,
+                        if batch_size is not None.
     :return: Number of records updated
     """
     # Validate data
@@ -630,8 +682,10 @@ def bulk_update(model, values, key_fields='id', using=None, set_functions=None, 
     conn = connection if using is None else connections[using]
 
     batched_result = batched_operation(_bulk_update_no_validation, values,
-                                       args=(model, None, conn, key_fields, upd_fds, ret_fds, where),
-                                       data_arg_index=1, batch_size=batch_size, batch_delay=batch_delay)
+                                       args=(model, None, conn, key_fields,
+                                             upd_fds, ret_fds, where),
+                                       data_arg_index=1, batch_size=batch_size,
+                                       batch_delay=batch_delay)
 
     return _concat_batched_result(batched_result, ret_fds)
 
@@ -665,15 +719,15 @@ def _insert_query_part(model, conn, insert_fds, default_fds):
     val_columns, val_columns_params = [], []
     for fd in insert_fds:
         val = '"vals"."%s"' % fd.prefixed_name
-        func_sql, params = fd.set_function.get_sql_value(fd.get_field(model), val, conn, val_as_param=False,
-                                                         for_update=False)
+        func_sql, params = fd.set_function.get_sql_value(
+            fd.get_field(model), val, conn, val_as_param=False, for_update=False)
         val_columns.append(func_sql)
         val_columns_params.extend(params)
 
     for fd in default_fds:
         val = '"default_vals"."%s"' % fd.prefixed_name
-        func_sql, params = fd.set_function.get_sql_value(fd.get_field(model), val, conn, val_as_param=False,
-                                                         for_update=False)
+        func_sql, params = fd.set_function.get_sql_value(
+            fd.get_field(model), val, conn, val_as_param=False, for_update=False)
         val_columns.append(func_sql)
         val_columns_params.extend(params)
 
@@ -703,8 +757,10 @@ def _insert_no_validation(model, values, default_fds, insert_fds, ret_fds, using
     :return: A tuple (number of records created, number of records updated)
     """
     conn = connection if using is None else connections[using]
-    val_sql, val_params = _with_values_query_part(model, values, conn, tuple(), insert_fds, default_fds)
-    insert_sql, insert_params = _insert_query_part(model, conn, insert_fds, default_fds)
+    val_sql, val_params = _with_values_query_part(
+        model, values, conn, tuple(), insert_fds, default_fds)
+    insert_sql, insert_params = _insert_query_part(
+        model, conn, insert_fds, default_fds)
     ret_sql, ret_params = _returning_query_part(model, ret_fds)
 
     sql = "%s %s %s" % (val_sql, insert_sql, ret_sql)
@@ -713,7 +769,8 @@ def _insert_no_validation(model, values, default_fds, insert_fds, ret_fds, using
     return _execute_update_query(model, conn, sql, params, ret_fds)
 
 
-def bulk_create(model, values, using=None, set_functions=None, returning=None, batch_size=None, batch_delay=0):
+def bulk_create(model, values, using=None, set_functions=None, returning=None,
+                batch_size=None, batch_delay=0):
     # type: (Type[Model], TUpdateValues, Optional[str], TSetFunctions, Optional[TFieldNames], Optional[int], float) -> Union[int, 'ReturningQuerySet']  # noqa: F821
     """
     Creates a batch of records in database.
@@ -744,7 +801,8 @@ def bulk_create(model, values, using=None, set_functions=None, returning=None, b
     if using is not None and not isinstance(using, string_types):
         raise TypeError("using parameter must be None or existing database alias")
     if using is not None and using not in connections:
-        raise ValueError("using parameter must be None or existing database alias")
+        raise ValueError(
+            "using parameter must be None or existing database alias")
 
     insert_fds, values = _validate_update_values(model, tuple(), values)
     ret_fds = _validate_returning(model, returning)
@@ -756,13 +814,16 @@ def bulk_create(model, values, using=None, set_functions=None, returning=None, b
     insert_fds = _validate_set_functions(model, insert_fds, set_functions)
 
     batched_result = batched_operation(_insert_no_validation, values,
-                                       args=(model, None, default_fds, insert_fds, ret_fds, using),
-                                       data_arg_index=1, batch_size=batch_size, batch_delay=batch_delay)
+                                       args=(model, None, default_fds,
+                                             insert_fds, ret_fds, using),
+                                       data_arg_index=1, batch_size=batch_size,
+                                       batch_delay=batch_delay)
 
     return _concat_batched_result(batched_result, ret_fds)
 
 
-def _bulk_update_or_create_no_validation(model, values, key_fds, upd_fds, ret_fds, using, update):
+def _bulk_update_or_create_no_validation(model, values, key_fds, upd_fds, ret_fds,
+                                         using, update, constraint):
     # type: (Type[Model], TUpdateValues, Tuple[FieldDescriptor], Tuple[FieldDescriptor], Optional[Tuple[FieldDescriptor]], Optional[str], bool) -> int
     """
     Searches for records, given in values by key_fields. If records are found, updates them from values.
@@ -786,7 +847,9 @@ def _bulk_update_or_create_no_validation(model, values, key_fds, upd_fds, ret_fd
     with transaction.atomic(using=using):
         # Find existing values
         key_items = list(values.keys())
-        qs = model.objects.filter(pdnf_clause([fd.name for fd in key_fds], key_items)).using(using).select_for_update()
+        qs = (model.objects
+                   .filter(pdnf_clause([fd.name for fd in key_fds], key_items))
+                   .using(using).select_for_update())
         existing_values_dict = {
             tuple([item[fd.name] for fd in key_fds]): item
             for item in qs.values()
@@ -807,28 +870,33 @@ def _bulk_update_or_create_no_validation(model, values, key_fds, upd_fds, ret_fd
                 kwargs.update(dict(zip([fd.name for fd in key_fds], key)))
 
                 for fd in upd_fds:
-                    fd.set_function.modify_create_params(model, fd.name, kwargs, connection=connection)
+                    fd.set_function.modify_create_params(
+                        model, fd.name, kwargs, connection=connection)
 
                 create_items.append(model(**kwargs))
 
         # Update existing records
-        update_result = _bulk_update_no_validation(model, update_items, conn, key_fds, upd_fds, ret_fds, ('', tuple()))
+        update_result = _bulk_update_no_validation(
+            model, update_items, conn, key_fds, upd_fds, ret_fds, ('', tuple()))
 
         # Create absent records
-        # auto_now and auto_now_add don't work in bulk_create, as they are set up in pre_save
+        # auto_now and auto_now_add don't work in bulk_create,
+        # as they are set up in pre_save
 
         created_items = model.objects.db_manager(using).bulk_create(create_items)
 
         if ret_fds is None:
             return len(created_items) + update_result
         else:
-            # HACK There's no way to create ReturningQuerySet from already prefetched items
+            # HACK There's no way to create ReturningQuerySet
+            # from already prefetched items
             res = update_result
             res._result_cache.extend(create_items)
             return res
 
 
-def _insert_on_conflict_query_part(model, conn, key_fds, upd_fds, default_fds, update):
+def _insert_on_conflict_query_part(model, conn, key_fds, upd_fds,
+                                   default_fds, update, constraint):
     # type: (Type[Model], TDatabase, Tuple[FieldDescriptor], Tuple[FieldDescriptor], Tuple[FieldDescriptor], bool) -> Tuple[str, List[Any]]
     """
     Forms bulk update query part without values, counting that all keys and values are already in "vals" table
@@ -839,15 +907,17 @@ def _insert_on_conflict_query_part(model, conn, key_fds, upd_fds, default_fds, u
     :param update: If this flag is not set, existing records will not be updated
     :return: A tuple of sql and it's parameters
     """
-    query = "%s ON CONFLICT (%s) %s"
+    query = "%s ON CONFLICT %s %s"
 
-    # Form update data. It would be used in SET section, if values updated and INSERT section if created
+    # Form update data. It would be used in SET section,
+    # if values updated and INSERT section if created
     set_items, set_params = [], []
     set_columns = []
     for fd in upd_fds:
         set_columns.append('"%s"' % fd.get_field(model).column)
-        func_sql, params = fd.set_function.get_sql_value(fd.get_field(model), '"vals"."%s"' % fd.prefixed_name, conn,
-                                                         val_as_param=False, with_table=True)
+        func_sql, params = fd.set_function.get_sql_value(
+            fd.get_field(model), '"vals"."%s"' % fd.prefixed_name, conn,
+            val_as_param=False, with_table=True)
         set_items.append(func_sql)
         set_params.extend(params)
 
@@ -857,8 +927,9 @@ def _insert_on_conflict_query_part(model, conn, key_fds, upd_fds, default_fds, u
         where_columns.append('"%s"' % fd.prefixed_name)
         where_items.append('EXCLUDED."%s"' % fd.get_field(model).column)
 
-    set_sql = '(%s) = (SELECT %s FROM "vals" WHERE (%s) = (%s))' \
-              % (', '.join(set_columns), ', '.join(set_items), ', '.join(where_columns), ', '.join(where_items))
+    set_sql = ('(%s) = (SELECT %s FROM "vals" WHERE (%s) = (%s))'
+               % (', '.join(set_columns), ', '.join(set_items),
+                  ', '.join(where_columns), ', '.join(where_items)))
 
     if update and upd_fds:
         conflict_action = 'DO UPDATE SET %s' % set_sql
@@ -869,17 +940,25 @@ def _insert_on_conflict_query_part(model, conn, key_fds, upd_fds, default_fds, u
 
     # Columns to insert to table
     key_fields = {fd.get_field(model) for fd in key_fds}
-    insert_fds = tuple(chain(key_fds, (fd for fd in upd_fds if fd.get_field(model) not in key_fields)))
-    insert_sql, insert_params = _insert_query_part(model, conn, insert_fds, default_fds)
+    insert_fds = tuple(
+        chain(key_fds, (fd for fd in upd_fds
+                        if fd.get_field(model) not in key_fields)))
+    insert_sql, insert_params = _insert_query_part(
+        model, conn, insert_fds, default_fds)
 
     # Conflict columns
     key_columns = ', '.join('"%s"' % fd.get_field(model).column for fd in key_fds)
+    if not constraint:
+        index_sql = '(%s)' % key_columns
+    else:
+        index_sql = '(%s) WHERE %s' % (key_columns, constraint)
 
-    sql = query % (insert_sql, key_columns, conflict_action)
+    sql = query % (insert_sql, index_sql, conflict_action)
     return sql, insert_params + conflict_action_params
 
 
-def _insert_on_conflict_no_validation(model, values, key_fds, upd_fds, ret_fds, using, update):
+def _insert_on_conflict_no_validation(model, values, key_fds, upd_fds, ret_fds,
+                                      using, update, constraint):
     # type: (Type[Model], TUpdateValues, Tuple[FieldDescriptor], Tuple[FieldDescriptor], Optional[Tuple[FieldDescriptor]], Optional[str], bool) -> Union[int, 'ReturningQuerySet']  # noqa: F821
     """
     Searches for records, given in values by key_fields. If records are found, updates them from values.
@@ -901,8 +980,10 @@ def _insert_on_conflict_no_validation(model, values, key_fds, upd_fds, ret_fds, 
     conn = connection if using is None else connections[using]
 
     default_fds = _get_default_fds(model, tuple(chain(key_fds, upd_fds)))
-    val_sql, val_params = _with_values_query_part(model, values, conn, key_fds, upd_fds, default_fds)
-    upd_sql, upd_params = _insert_on_conflict_query_part(model, conn, key_fds, upd_fds, default_fds, update)
+    val_sql, val_params = _with_values_query_part(
+        model, values, conn, key_fds, upd_fds, default_fds)
+    upd_sql, upd_params = _insert_on_conflict_query_part(
+        model, conn, key_fds, upd_fds, default_fds, update, constraint)
     ret_sql, ret_params = _returning_query_part(model, ret_fds)
 
     sql = "%s %s %s" % (val_sql, upd_sql, ret_sql)
@@ -911,8 +992,11 @@ def _insert_on_conflict_no_validation(model, values, key_fds, upd_fds, ret_fds, 
     return _execute_update_query(model, conn, sql, params, ret_fds)
 
 
-def bulk_update_or_create(model, values, key_fields='id', using=None, set_functions=None, update=True,
-                          key_is_unique=True, returning=None, batch_size=None, batch_delay=0):
+def bulk_update_or_create(model, values, key_fields='id', using=None,
+                          set_functions=None, update=True,
+                          key_is_unique=True, returning=None,
+                          batch_size=None, batch_delay=0,
+                          constraint=None):
     # type: (Type[Model], TUpdateValues, TFieldNames, Optional[str], TSetFunctions, bool, bool, Optional[TFieldNames], Optional[int], float) -> Union[int, 'ReturningQuerySet']  # noqa: F821
     """
     Searches for records, given in values by key_fields. If records are found, updates them from values.
@@ -942,6 +1026,7 @@ def bulk_update_or_create(model, values, key_fields='id', using=None, set_functi
     :param batch_size: Optional. If given, data is split it into batches of given size.
         Each batch is queried independently.
     :param batch_delay: Delay in seconds between batches execution, if batch_size is not None.
+    :param constraint: Hardcoded 'WHERE' clause of partial index
     :return: Number of records created or updated
     """
     # Validate data
@@ -952,7 +1037,8 @@ def bulk_update_or_create(model, values, key_fields='id', using=None, set_functi
     if using is not None and not isinstance(using, string_types):
         raise TypeError("using parameter must be None or existing database alias")
     if using is not None and using not in connections:
-        raise ValueError("using parameter must be None or existing database alias")
+        raise ValueError(
+            "using parameter must be None or existing database alias")
     if type(update) is not bool:
         raise TypeError("update parameter must be boolean")
     if type(key_is_unique) is not bool:
@@ -979,7 +1065,10 @@ def bulk_update_or_create(model, values, key_fields='id', using=None, set_functi
         batch_func = _bulk_update_or_create_no_validation
 
     batched_result = batched_operation(batch_func, values,
-                                       args=(model, None, key_fds, upd_fds, ret_fds, using, update),
-                                       data_arg_index=1, batch_size=batch_size, batch_delay=batch_delay)
+                                       args=(model, None, key_fds, upd_fds,
+                                             ret_fds, using, update, constraint),
+                                       data_arg_index=1,
+                                       batch_size=batch_size,
+                                       batch_delay=batch_delay)
 
     return _concat_batched_result(batched_result, ret_fds)
